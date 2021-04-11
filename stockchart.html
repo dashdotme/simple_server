@@ -1,0 +1,40 @@
+<html>
+
+<head>
+    <title>Stock Performance</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <script src="chartScript.js"defer></script>
+    <script src="chart_autocomplete.js"defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.0.2/dist/chart.min.js"></script>
+    <!-- Simple script to stop POST resubmit on refresh; doesn't work-->
+    <!-- <script>
+        if (window.history.replaceState) {
+            window.history.replaceState(null, null, window.location.href);
+        }
+    </script> -->
+
+    
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+        <form id="stock_chart" autocomplete="off" action="/chart" method="post">
+            <div class="col-25">
+                <label class="makePretty" for="the_stock">Stock symbol:</label>
+            </div>
+            <div class="col-75">
+                <div class="autocomplete" style="width:300px;">
+                    <input type="text" id="symbol_input" name="symbol">
+                </div>
+            </div>
+        </form>
+    </div>
+    </div>
+    <div id="chart">
+        <canvas id="myChart" style="display:block; box-sizing: border-box; height: 600px; width: 600px"></canvas>
+    </div>
+</body>
+
+
+</html>

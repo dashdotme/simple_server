@@ -1,0 +1,65 @@
+<html>
+
+<head>
+  <title>Stocks</title>
+  <link rel="stylesheet" type="text/css" href="style.css" />
+  <script src="autocomplete.js">
+    // this needs to be here to avoid overwriting the window.onload call in chartScript.js for stockchart
+    window.onload = function() {
+      autocomplete(document.getElementById("symbol_input"), symbols);
+    }
+  </script>
+  <script src="compute_stocks.js"></script>
+</head>
+
+<body>
+  <div class="table" id="stocktable">
+    <table id="stocks">
+      <thead>
+        <tr>
+          <th>Stock</th>
+          <th>Quantity</th>
+          <th>Price</th>
+          <th>Gain/Loss</th>
+        </tr>
+        </head>
+      <tbody id="access">
+      </tbody>
+    </table>
+  </div>
+  <div class="container">
+    <div class="row">
+      <form id="theform" autocomplete="off" action="/updatePortfolio" method="post">
+        <div class="col-25">
+          <label for="symbol">Symbol:</label>
+        </div>
+        <div class="col-75">
+          <div class="autocomplete" style="width:300px;">
+            <input type="text" id="symbol_input" name="symbol">
+          </div><br>
+        </div>
+    </div>
+    <div class="row">
+      <div class='col-25'>
+        <label for="quantity">Quantity:</label>
+      </div>
+      <div class='col-75'>
+        <input type="number" id="quantity" name="quantity" step="1" pattern="/^[-+]?\d+$/"><br>
+      </div>
+    </div>
+    <div class="row">
+      <div class='col-25'>
+        <label for="price">Price:</label>
+      </div>
+      <div class='col-75'>
+        <input type="number" id="price" name="price" step="0.01" pattern="^\d*(\.\d{0,2})?$"><br>
+      </div>
+    </div>
+    <input type="reset">
+    <input type="submit" value="Update">
+    </form>
+  </div>
+
+</body>
+
+</html>
