@@ -28,17 +28,6 @@ import math
 import base64
 from decimal import *
 
-
-# Extract the given header value from the HTTP request message
-def getHeader(message, header):
-    if message.find(header) > -1:
-        value = message.split(header)[1].split()[0]
-    else:
-        value = None
-
-    return value
-
-
 # service function to fetch the requested file, and send the contents back to the client in a HTTP response.
 def getFile(filename):
     try:
@@ -56,6 +45,15 @@ def getFile(filename):
 
     return header, body
 
+def badRequest():
+    header = "HTTP/1.1 400 Bad Request\r\n\r\n".encode()
+    body = "<html><head></head><body><h1>400 Bad Request</h1></body></html>\r\n".encode()
+    return header, body
+
+def lookupError():
+    header = "HTTP/1.1 404 Not Found\r\n\r\n".encode()
+    body = "<html><head></head><body><h1>404 Not Found</h1></body></html>\r\n".encode()
+    return header, body
 
 # service function for requests which error out, to fetch a page body
 def getFileNoHeader(filename):
@@ -67,7 +65,6 @@ def getFileNoHeader(filename):
         f.close()
 
     except IOError:
-
         # Send HTTP response message for resource not found
         header = "HTTP/1.1 404 Not Found\r\n\r\n".encode()
         body = "<html><head></head><body><h1>404 Not Found</h1></body></html>\r\n".encode()
@@ -149,7 +146,21 @@ def resetJSON():
         f.write('')
 
     header, body = getFile('stockportfolio.html')
-    header = 'HTTP/1.1 226 IM Used'.encode()
+    header = 'HTTP/1.1 226 IM Used\r\n\r\n'.encode()
+    return header, body
+
+def portfolioUpSuccess():
+    header = 'HTTP/1.1 201 Created\r\nLocation: /stockportfolio.html\r\nContent-Location: /stockportfolio.html\r\n\r\n'.encode()
+    with open('stockportfolio.html', 'rb') as f:
+        body = f.read() # don't need to encode bytes
+
+    return header, body
+
+def portfolioUpFailure():
+    header = 'HTTP/1.1 400 Bad Request\r\n\r\n'.encode()
+    with open('stockportfolio.html', 'rb') as f:
+        body = f.read()
+
     return header, body
 
 def shortUpdate(updateData):
@@ -191,7 +202,7 @@ def shortUpdate(updateData):
     with open('portfolio.json', 'w') as f:
         json.dump({'portfolio': portfolio_stocks}, f)
 
-    return getFile('stockportfolio.html')
+    return portfolioUpSuccess()
 
 
 def updatePortfolio(update):
@@ -201,6 +212,9 @@ def updatePortfolio(update):
     except OSError as err:
         print("OS error: {0}".format(err))
         return shortUpdate(update)
+
+    if '\r\n\r\n' not in update:
+        return badRequest()
 
     if not bool:
         return shortUpdate(update)
@@ -216,7 +230,6 @@ def updatePortfolio(update):
         # header, body = pageError()
         # return header, body
 
-
     body = updateData[1].split('&')
 
     # parse the form data into a 2d array; structure = [0] : symbol; [1] : quantity; [2] : price
@@ -227,9 +240,7 @@ def updatePortfolio(update):
 
     # ensure the stock given as updateData is valid
     if not validateSymbol(upArray[0][1]):
-        header = 'HTTP/1.1 400 Bad Request\r\n\r\n'.encode()
-        body = getFileNoHeader('stockportfolio.html')
-        return header, body
+        return portfolioUpFailure()
 
     # lookup stock in portfolio
     existing = -1
@@ -243,14 +254,10 @@ def updatePortfolio(update):
         # Error: quantity must be a positive integer within reasonable bounds
         if not isInteger(upArray[1][1]) or int(upArray[1][1]) < 0 \
                 or int(upArray[1][1]) > 1000000:
-            header = 'HTTP/1.1 400 Bad Request\r\n\r\n'.encode()
-            body = getFileNoHeader('stockportfolio.html')
-            return header, body
+            return portfolioUpFailure()
 
         if not validatePrice(upArray[2][1]):
-            header = 'HTTP/1.1 400 Bad Request\r\n\r\n'.encode()
-            body = getFileNoHeader('stockportfolio.html')
-            return header, body
+            return portfolioUpFailure()
 
         # Create entry
         portfolio_stocks.append({
@@ -261,24 +268,19 @@ def updatePortfolio(update):
 
         # Reorganise and then store the portfolio
         sorted_portfolio = sorted(portfolio_stocks, key=lambda k: k['symbol'])
-        print(sorted_portfolio)
         with open('portfolio.json', 'w') as f:
             json.dump({'portfolio': sorted_portfolio}, f)
 
-        header = "HTTP/1.1 200 OK".encode()
+        return portfolioUpSuccess()
 
     else:  # amend existing stock in portfolio
         # Error: quantity must be an integer, within reasonable bounds
         if not isInteger(upArray[1][1]) or \
                 int(upArray[1][1]) > 1000000:
-            header = 'HTTP/1.1 400 Bad Request\r\n\r\n'.encode()
-            body = getFileNoHeader('stockportfolio.html')
-            return header, body
+            return portfolioUpFailure()
 
         if not validatePrice(float(upArray[2][1])):
-            header = 'HTTP/1.1 400 Bad Request\r\n\r\n'.encode()
-            body = getFileNoHeader('stockportfolio.html')
-            return header, body
+            return portfolioUpFailure()
 
         # To keep stock removal easy: if users enter a negative number greater than the number of stocks
         # they own, we'll pretend they entered exactly the quantity which they own
@@ -306,9 +308,7 @@ def updatePortfolio(update):
         with open('portfolio.json', 'w') as f:
             json.dump({'portfolio': sorted_data}, f)
 
-        header = 'HTTP/1.1 200 OK'.encode()
-
-    return getFile('stockportfolio.html')
+        return portfolioUpSuccess()
 
     # return portfolio('')
 
@@ -341,6 +341,7 @@ def process(connectionSocket):
     # buildValidSymbolFile()
     # Receives the request message from the client
     message = connectionSocket.recv(1024).decode()
+    print(message)
 
     if len(message) > 1:
         # Validate authorization
@@ -356,6 +357,7 @@ def process(connectionSocket):
         # Because the extracted path of the HTTP request includes
         # a character '/', we read the path from the second character
         resource = message.split()[1][1:]
+        print(resource)
 
         # map requested resource (contained in the URL) to specific function which generates HTTP response
         if resource == "":
@@ -372,6 +374,8 @@ def process(connectionSocket):
             responseHeader, responseBody = welcome(message)
         else:
             responseHeader, responseBody = getFile(resource)
+
+        # I really feel like
 
     # Append the basic authentication header
     # responseHeader = responseHeader.decode().rstrip('\r\n\r\n')
@@ -415,9 +419,9 @@ def main(argv):
         except KeyboardInterrupt:
             exit()
 
-
+# main(8080)
 if __name__ == '__main__':
-     main(sys.argv[1])
+    main(sys.argv[1])
 
 #print(message)
 #sys.stdout.flush()
